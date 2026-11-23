@@ -1,16 +1,55 @@
-%% TODO: Design your multi-agent architecture
-%%
-%% Your diagram should show:
-%% - An incoming ticket entry point
-%% - A Triage Agent that categorizes tickets and determines urgency, type, and customer tier
-%% - 3 specialized agents running in parallel (Technical, Billing, Knowledge Base)
-%% - A Routing Agent that evaluates all analysis and decides the final destination
-%% - 3 destinations: Auto-response (~40%), Human Team (~55%), Escalation (~5%)
-%%
-%% For each agent, label: name, key tools, model (Haiku or Sonnet), and what it handles
-%% Tip: use style statements to color-code different agent types
-%%      see demo/diagrams/multi-agent.mmd for color examples and Mermaid syntax
+%% Option B: Multi-Agent Architecture
 %% Render with: mmdc -i diagrams/multi-agent.mmd -o diagrams/multi-agent.svg
 
 graph TB
-    %% Add your nodes and connections here
+    Ticket(["<b>Incoming Ticket</b><br/>email · chat · web form<br/>~5,000+/day"])
+
+    Triage["<b>Triage Agent</b> · Haiku<br/><br/><b>Tools:</b> CRM lookup, Ticket System<br/><br/><b>Decides:</b><br/>- Type (technical / billing / general)<br/>- Urgency (P1–P4)<br/>- Customer tier → SLA deadline"]
+
+    subgraph Parallel["Parallel analysis (run at the same time)"]
+        direction LR
+        Tech["<b>Technical Agent</b> · Sonnet<br/><br/><b>Tools:</b> Logs, Status page,<br/>Known-issues tracker<br/><br/>Diagnoses bugs, outages,<br/>integration errors<br/><i>(runs if technical)</i>"]
+        Billing["<b>Billing Agent</b> · Haiku<br/><br/><b>Tools:</b> Billing system,<br/>Subscription records<br/><br/>Checks invoices, refunds,<br/>plan changes<br/><i>(runs if billing)</i>"]
+        KB["<b>Knowledge Base Agent</b> · Haiku<br/><br/><b>Tools:</b> KB vector search,<br/>Resolved-ticket history<br/><br/>Finds matching solutions<br/>+ confidence score<br/><i>(always runs)</i>"]
+    end
+
+    Routing["<b>Routing Agent</b> · Haiku<br/><br/><b>Inputs:</b> triage + all analyses<br/><b>Tools:</b> Ticket System, Team queues<br/><br/>Picks the destination and<br/>attaches a context summary"]
+
+    Auto["<b>Auto-Response</b><br/>~40% of tickets<br/>high-confidence KB match"]
+    Human["<b>Human Team</b><br/>~55% of tickets<br/>Engineering · Finance · L1"]
+    Esc["<b>Escalation</b><br/>~5% of tickets<br/>P1 / at-risk enterprise"]
+
+    SLA["<b>Escalation Agent</b> · Haiku<br/><i>background, every 5 min</i><br/><br/><b>Tools:</b> Ticket System,<br/>Slack / Email alerts"]
+
+    Audit[("<b>Audit Log</b><br/>every agent decision")]
+
+    Ticket --> Triage
+    Triage --> Tech
+    Triage --> Billing
+    Triage --> KB
+    Tech --> Routing
+    Billing --> Routing
+    KB --> Routing
+    Routing --> Auto
+    Routing --> Human
+    Routing --> Esc
+
+    SLA -. watches open tickets .-> Human
+    SLA -. escalates at-risk .-> Esc
+
+    Triage -.-> Audit
+    Routing -.-> Audit
+    SLA -.-> Audit
+
+    style Ticket fill:#eceff1,stroke:#333,stroke-width:2px
+    style Triage fill:#fff4e6,stroke:#333,stroke-width:2px
+    style Tech fill:#e8f5e9,stroke:#333,stroke-width:2px
+    style Billing fill:#e8f5e9,stroke:#333,stroke-width:2px
+    style KB fill:#e8f5e9,stroke:#333,stroke-width:2px
+    style Routing fill:#e1f5ff,stroke:#333,stroke-width:2px
+    style Auto fill:#f3e5f5,stroke:#333,stroke-width:2px
+    style Human fill:#f3e5f5,stroke:#333,stroke-width:2px
+    style Esc fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style SLA fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Audit fill:#fafafa,stroke:#666,stroke-width:1px
+    style Parallel fill:#f9fbf9,stroke:#81c784,stroke-dasharray: 5 5
