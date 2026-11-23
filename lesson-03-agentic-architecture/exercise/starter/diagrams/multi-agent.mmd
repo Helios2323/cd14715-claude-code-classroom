@@ -13,4 +13,33 @@
 %% Render with: mmdc -i diagrams/multi-agent.mmd -o diagrams/multi-agent.svg
 
 graph TB
-    %% Add your nodes and connections here
+    IN["Incoming Ticket<br/>(email, chat, web form)"] --> TRIAGE
+
+    TRIAGE["Triage Agent<br/>Model: Haiku<br/>Tools: ticket parser, customer-tier lookup<br/>Sets category, urgency, type, tier"]
+
+    TRIAGE --> TECH
+    TRIAGE --> BILL
+    TRIAGE --> KB
+
+    TECH["Technical Agent<br/>Model: Sonnet<br/>Tools: logs search, status API<br/>Handles bugs, outages, errors"]
+    BILL["Billing Agent<br/>Model: Haiku<br/>Tools: billing DB, invoice API<br/>Handles payments, refunds, plans"]
+    KB["Knowledge Base Agent<br/>Model: Haiku<br/>Tools: doc search, FAQ index<br/>Finds matching answers"]
+
+    TECH --> ROUTER
+    BILL --> ROUTER
+    KB --> ROUTER
+
+    ROUTER["Routing Agent<br/>Model: Sonnet<br/>Tools: SLA rules, confidence scoring<br/>Picks final destination"]
+
+    ROUTER -->|"~40%"| AUTO["Auto-response"]
+    ROUTER -->|"~55%"| HUMAN["Human Team"]
+    ROUTER -->|"~5%"| ESC["Escalation<br/>(enterprise / SLA risk)"]
+
+    style TRIAGE fill:#cfe8ff,stroke:#1f6feb
+    style TECH fill:#ffe8cc,stroke:#d9730d
+    style BILL fill:#e0f5d8,stroke:#2da44e
+    style KB fill:#f0e0ff,stroke:#8250df
+    style ROUTER fill:#cfe8ff,stroke:#1f6feb
+    style AUTO fill:#e0f5d8,stroke:#2da44e
+    style HUMAN fill:#fff3b0,stroke:#bf8700
+    style ESC fill:#ffd6d6,stroke:#cf222e
