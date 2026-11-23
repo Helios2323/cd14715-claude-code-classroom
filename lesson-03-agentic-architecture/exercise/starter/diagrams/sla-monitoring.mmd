@@ -1,15 +1,38 @@
-%% TODO: Design the background SLA monitoring / escalation agent
-%%
-%% Your diagram should describe an agent that:
-%% - Runs on a regular schedule (how often?)
-%% - Queries open tickets and checks time remaining vs SLA deadline
-%% - Alerts the team lead when a ticket is close to breaching SLA
-%% - Escalates to a manager and logs a compliance violation when SLA is breached
-%%
-%% Include: run frequency, escalation thresholds, tools used, model choice
-%% Tip: use a warning/alert color for the node style
-%%      see demo/diagrams/sla-monitoring.mmd for color and syntax examples
+%% Background SLA monitoring / escalation agent
 %% Render with: mmdc -i diagrams/sla-monitoring.mmd -o diagrams/sla-monitoring.svg
 
 graph TB
-    %% Define your escalation agent node here
+    Timer(["⏱ Scheduler<br/>every 5 minutes"]) --> Agent
+
+    Agent["<b>Escalation Agent</b> · Haiku<br/><br/><b>Tools:</b><br/>- Ticket System (query open tickets)<br/>- Slack / Email (alerts)<br/>- Paging (on-call)<br/>- Audit Log<br/><br/><b>Why Haiku:</b> simple, frequent checks;<br/>speed and cost matter more than depth"]
+
+    Agent --> Query["Query all open tickets<br/>not yet answered by a human"]
+    Query --> Calc["For each ticket:<br/>time remaining ÷ total SLA window"]
+    Calc --> Check{"Time remaining?"}
+
+    Check -->|"> 50%"| OK["On track<br/>no action"]
+    Check -->|"20–50%"| Warn["⚠ Warning<br/>bump priority in queue<br/>+ notify assigned agent"]
+    Check -->|"< 20%"| Lead["🔶 At risk<br/>alert team lead on Slack<br/>+ reassign if agent is busy"]
+    Check -->|"0% (breached)"| Breach["🔴 Breached<br/>escalate to support manager<br/>+ log compliance violation"]
+
+    Lead --> Ent{"Enterprise<br/>customer?"}
+    Ent -->|Yes| Page["Page on-call engineer<br/>+ notify account manager"]
+    Ent -->|No| Log
+    Page --> Log
+    Breach --> Log
+    Warn --> Log
+    Log[("Audit Log<br/>every alert and escalation")]
+
+    Heartbeat["💓 Heartbeat written each run"] -.-> DMS{"No heartbeat<br/>for 10 min?"}
+    Agent -.-> Heartbeat
+    DMS -->|Yes| Ops["Dead-man's switch:<br/>alert ops team, fail over<br/>to backup monitor"]
+
+    style Timer fill:#eceff1,stroke:#333
+    style Agent fill:#ffebee,stroke:#c62828,stroke-width:3px
+    style OK fill:#e8f5e9,stroke:#333
+    style Warn fill:#fff8e1,stroke:#f9a825,stroke-width:2px
+    style Lead fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    style Breach fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Page fill:#ffebee,stroke:#c62828
+    style Ops fill:#ffebee,stroke:#c62828
+    style Log fill:#fafafa,stroke:#666

@@ -1,19 +1,61 @@
-%% TODO: Create a sequence diagram showing the interaction timeline between components
-%%
-%% Your diagram should include participants for:
-%% - Customer, Ticket System, Triage Agent, CRM, the 3 specialized agents,
-%%   Routing Agent, and Destination
-%%
-%% The sequence should show:
-%% - The CRM lookup that happens at triage time
-%% - A 'par' block for the 3 specialized agents working simultaneously
-%% - All agents reporting results back to the Routing Agent
-%% - Conditional routing outcomes using 'alt' / 'else' blocks
-%% - A note about the background SLA escalation agent
-%%
-%% Tip: use 'activate' / 'deactivate' to show when each agent is actively working
-%%      see demo/diagrams/sequence.mmd for sequenceDiagram syntax examples
+%% Interaction timeline for one ticket
 %% Render with: mmdc -i diagrams/sequence.mmd -o diagrams/sequence.svg
 
 sequenceDiagram
-    %% Define your actors/participants and show the interaction flow
+    autonumber
+    actor Customer
+    participant System as Ticket System
+    participant Triage as Triage Agent<br/>(Haiku)
+    participant CRM
+    participant Tech as Technical Agent<br/>(Sonnet)
+    participant Billing as Billing Agent<br/>(Haiku)
+    participant KB as Knowledge Base Agent<br/>(Haiku)
+    participant Routing as Routing Agent<br/>(Haiku)
+    participant Dest as Destination
+
+    Customer->>System: Submits ticket (email / chat / web)
+    System->>Triage: New ticket event
+    activate Triage
+    Triage->>CRM: Look up customer
+    activate CRM
+    CRM-->>Triage: Tier, plan, account history
+    deactivate CRM
+    Triage->>Triage: Classify type + urgency, set SLA deadline
+    Triage-->>System: Write triage result + audit entry
+    deactivate Triage
+
+    Note over Tech,KB: Specialists run at the same time (~3–5 s total, not the sum)
+
+    par Technical analysis (if technical)
+        System->>Tech: Ticket + triage context
+        activate Tech
+        Tech-->>Routing: Diagnosis, severity, suggested fix
+        deactivate Tech
+    and Billing analysis (if billing)
+        System->>Billing: Ticket + triage context
+        activate Billing
+        Billing-->>Routing: Account status, invoice findings
+        deactivate Billing
+    and Knowledge base search (always)
+        System->>KB: Ticket text
+        activate KB
+        KB-->>Routing: Best matches + confidence score
+        deactivate KB
+    end
+
+    activate Routing
+    Routing->>Routing: Combine analyses, apply routing rules
+    alt P1 outage or enterprise at risk
+        Routing->>Dest: Escalate to on-call + team lead
+        Dest-->>Customer: "We're on it" + human follow-up
+    else KB confidence ≥ 90% and low risk
+        Routing->>Dest: Auto-response with KB solution
+        Dest-->>Customer: Answer within seconds
+    else Everything else
+        Routing->>Dest: Assign to Engineering / Finance / L1 with summary
+        Dest-->>Customer: Acknowledgement, human reply within SLA
+    end
+    Routing-->>System: Log routing decision (audit trail)
+    deactivate Routing
+
+    Note over System,Dest: In the background, the Escalation Agent re-checks every open ticket<br/>every 5 minutes and escalates any ticket close to its SLA deadline

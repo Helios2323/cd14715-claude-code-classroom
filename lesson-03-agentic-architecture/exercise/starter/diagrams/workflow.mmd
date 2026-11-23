@@ -1,16 +1,55 @@
-%% TODO: Create a detailed workflow diagram showing the ticket journey from start to finish
-%%
-%% Your diagram should show:
-%% - START: New ticket received
-%% - TRIAGE: Agent categorizes ticket, looks up customer in CRM, sets SLA deadline by tier
-%% - PARALLEL execution: 3 specialized agents running simultaneously
-%% - ROUTING: Decision logic based on KB confidence, ticket type, urgency, and customer tier
-%% - DESTINATIONS: Auto-response, Human Team, Escalation
-%%
-%% Tip: use flowchart TD (top-down) syntax
-%%      use dashed arrows -.-> to represent parallel execution paths
-%%      see demo/diagrams/workflow.mmd for Mermaid syntax examples
+%% Ticket workflow: from receipt to resolution
 %% Render with: mmdc -i diagrams/workflow.mmd -o diagrams/workflow.svg
 
 flowchart TD
-    %% Add your workflow steps and connections here
+    Start(["New ticket received<br/>email / chat / web form"]) --> Normalize["Normalize into a single ticket format<br/>+ write audit entry"]
+    Normalize --> Triage["<b>Triage Agent</b> (Haiku)<br/>classify type + urgency"]
+    Triage --> CRM["Look up customer in CRM"]
+    CRM --> Tier{"Customer tier?"}
+    Tier -->|Enterprise| SLA1["SLA deadline = now + 1 h"]
+    Tier -->|Standard| SLA4["SLA deadline = now + 4 h"]
+    SLA1 --> Fork
+    SLA4 --> Fork
+
+    Fork(["Fan out in parallel"])
+    Fork -.->|if technical| Tech["<b>Technical Agent</b> (Sonnet)<br/>diagnose root cause"]
+    Fork -.->|if billing| Bill["<b>Billing Agent</b> (Haiku)<br/>check account + invoices"]
+    Fork -.->|always| KB["<b>Knowledge Base Agent</b> (Haiku)<br/>search solutions + score confidence"]
+
+    Tech -.-> Join
+    Bill -.-> Join
+    KB -.-> Join
+    Join(["Collect results<br/>(timeout 30 s per agent)"]) --> Routing["<b>Routing Agent</b> (Haiku)<br/>weigh all analysis"]
+
+    Routing --> P1{"P1 / outage, or<br/>enterprise at risk?"}
+    P1 -->|Yes| Escalate["<b>Escalate</b><br/>page on-call + team lead (~5%)"]
+    P1 -->|No| Conf{"KB confidence ≥ 90%<br/>and low risk?"}
+    Conf -->|Yes| Auto["<b>Auto-respond</b><br/>send KB solution (~40%)"]
+    Conf -->|No| Team{"Ticket type?"}
+    Team -->|Technical| Eng["Engineering queue"]
+    Team -->|Billing| Fin["Finance queue"]
+    Team -->|General| L1["L1 support queue"]
+    Eng --> Human["<b>Human team</b> (~55%)<br/>ticket arrives with summary,<br/>diagnosis + suggested reply"]
+    Fin --> Human
+    L1 --> Human
+
+    Auto --> Solved{"Customer says<br/>it's solved?"}
+    Solved -->|Yes| Done(["Resolved + closed"])
+    Solved -->|"No / reopened"| Human
+    Human --> Done
+    Escalate --> Done
+
+    Monitor["<b>Escalation Agent</b> (background)<br/>checks open tickets every 5 min"] -. "SLA at risk" .-> Escalate
+    Human -. "still open" .-> Monitor
+
+    style Start fill:#eceff1,stroke:#333
+    style Triage fill:#fff4e6,stroke:#333,stroke-width:2px
+    style Tech fill:#e8f5e9,stroke:#333,stroke-width:2px
+    style Bill fill:#e8f5e9,stroke:#333,stroke-width:2px
+    style KB fill:#e8f5e9,stroke:#333,stroke-width:2px
+    style Routing fill:#e1f5ff,stroke:#333,stroke-width:2px
+    style Auto fill:#f3e5f5,stroke:#333,stroke-width:2px
+    style Human fill:#f3e5f5,stroke:#333,stroke-width:2px
+    style Escalate fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Monitor fill:#ffebee,stroke:#c62828,stroke-width:2px
+    style Done fill:#c8e6c9,stroke:#333
